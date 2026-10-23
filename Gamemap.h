@@ -1,6 +1,6 @@
 #pragma once
 // GameMap.h - this is the map where tanks fight with walls and stuff
-#pragma once
+
 #include "constants.h"
 
 class GameMap {

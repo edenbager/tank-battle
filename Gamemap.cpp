@@ -1,5 +1,5 @@
 ﻿#include "GameMap.h"  // include header for GameMap class
-#include "ConsuleUtility.h"  // include console utility for cursor control
+#include "ConsoleUtility.h"  // include console utility for cursor control
 #include <iostream>  // include iostream for cout
 
 using namespace std;  // use std namespace for cout
@@ -27,16 +27,16 @@ void GameMap::initialize() {  // init map fresh
 
     // make walls on edges
     for (int x = 0; x < WIDTH; x++) {  // top and bottom edges
-        map[0][x] = ' ';  // set char blank for edge? (empty boundary)
-        map[HEIGHT - 1][x] = ' ';
+        map[0][x] = '#';  // edge is drawn as a wall
+        map[HEIGHT - 1][x] = '#';
         wallHealth[0][x] = -1;  // boundary health -1 means indestructible
         wallHealth[HEIGHT - 1][x] = -1;
         isBoundary[0][x] = true;  // mark edge boundary
         isBoundary[HEIGHT - 1][x] = true;
     }
     for (int y = 0; y < HEIGHT; y++) {  // left and right edges
-        map[y][0] = ' ';
-        map[y][WIDTH - 1] = ' ';
+        map[y][0] = '#';
+        map[y][WIDTH - 1] = '#';
         wallHealth[y][0] = -1;
         wallHealth[y][WIDTH - 1] = -1;
         isBoundary[y][0] = true;

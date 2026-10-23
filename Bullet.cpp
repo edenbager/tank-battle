@@ -1,5 +1,5 @@
 #include "Bullet.h"  // include bullet header file
-#include "ConsuleUtility.h"  // include console utility for cursor and color
+#include "ConsoleUtility.h"  // include console utility for cursor and color
 #include "constants.h"  // include game constants like WIDTH and HEIGHT
 #include <iostream>  // include iostream for cout
 

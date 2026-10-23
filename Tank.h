@@ -1,8 +1,12 @@
 // Tank.h - this is the tanks that players control
 #pragma once
 #include <vector>
+#include <utility>
 #include "Bullet.h"
 #include "GameMap.h"
+// (x, y) positions of other tanks
+using Positions = std::vector<std::pair<int, int>>;
+
 class Tank {
 private:
     int x, y;                    // where tank is
@@ -48,12 +52,12 @@ public:
     // checks if tank moving
     bool isMoving() const;
     // moves tank and checks if it hit anything
-    bool updateMovement(GameMap& gameMap, int otherTankX, int otherTankY);
+    bool updateMovement(GameMap& gameMap, const Positions& otherTanks);
     // makes tank shoot
-    bool fire(GameMap& gameMap, int otherTankX, int otherTankY);
+    bool fire(GameMap& gameMap, const Positions& enemies);
     // moves all bullets tank shot
-    bool updateBullet(GameMap& gameMap, int otherTankX, int otherTankY);
-    // שבירת הקנה של הטנק
+    bool updateBullet(GameMap& gameMap, const Positions& enemies);
+    // breaks the tank's cannon
     void breakCannon();
 
     // get tank information

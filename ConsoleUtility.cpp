@@ -1,4 +1,4 @@
-#include "ConsuleUtility.h"  // include console utility header
+#include "ConsoleUtility.h"  // include console utility header
 #include <iostream>  // include iostream for cout
 
 using namespace std;  // use std namespace for functions and types

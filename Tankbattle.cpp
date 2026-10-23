@@ -1,5 +1,5 @@
 ﻿#include "TankBattle.h"  // include tank battle header
-#include "ConsuleUtility.h"  // include console utitlity
+#include "ConsoleUtility.h"  // include console utitlity
 #include "PauseUtils.h"  // include pause utils
 #include <iostream>  // include iostream for cout
 #include <conio.h>  // include conio for getch and kbhit
@@ -13,6 +13,22 @@
 
 
 namespace fs = std::filesystem;  // alias fs
+
+// positions of all tanks in the list, optionally skipping one tank
+static Positions positionsOf(const std::vector<Tank*>& tanks, const Tank* skip = nullptr) {
+    Positions result;
+    for (const Tank* t : tanks)
+        if (t != skip) result.emplace_back(t->getX(), t->getY());
+    return result;
+}
+
+// positions of every tank except `self` (teammates block movement too)
+static Positions othersOf(const std::vector<Tank*>& team, const std::vector<Tank*>& enemies, const Tank* self) {
+    Positions result = positionsOf(team, self);
+    Positions e = positionsOf(enemies);
+    result.insert(result.end(), e.begin(), e.end());
+    return result;
+}
 
 std::vector<std::string> TankBattle::discoverScreens() const {  // find .screen files
     std::vector<std::string> screens;  // make vector of string
@@ -60,6 +76,8 @@ void TankBattle::loadScreen(const std::string& filename) {  // load one screeen 
 
     while (std::getline(in, line)) {  // read line by line
         for (int x = 0; x < (int)line.size(); ++x) {  // for each char in line
+            if (y >= HEIGHT || x >= WIDTH) break;  // ignore anything outside the map
+            if (x == 0 || y == 0 || x == WIDTH - 1 || y == HEIGHT - 1) continue;  // map edges stay indestructible
             char c = line[x];  // get char
             switch (c) {  // switch on char
             case '#':  gameMap.setWall(x, y);  break;  // # is wall
@@ -191,8 +209,8 @@ void TankBattle::showInstructions() {
     cout << "! = Wall hit once" << endl;
     cout << "Can shoot every 5 frames, many bullets allowed" << endl;
     cout << endl;
-    // edge wrapping explain
-    cout << "Tanks and bullets wrap around edges" << endl;
+    // edge behaviour explain
+    cout << "Bullets wrap around the edges, tanks stop at them" << endl;
     // pause keys explain
     cout << "Press P or ESC to pause. When paused, ESC to continue or X for menu" << endl;
     // back to main menu prompt
@@ -268,9 +286,7 @@ void TankBattle::handleInput() {
         break;
     case 'w': {
         if (!player1Tanks.empty()) {
-            int tx = player2Tanks.empty() ? -1 : player2Tanks[0]->getX();
-            int ty = player2Tanks.empty() ? -1 : player2Tanks[0]->getY();
-            if (player1Tanks[current1]->fire(gameMap, tx, ty)) {
+            if (player1Tanks[current1]->fire(gameMap, positionsOf(player2Tanks))) {
                 gameOver = true; winner = '1';
             }
         }
@@ -299,9 +315,7 @@ void TankBattle::handleInput() {
         break;
     case 'i': {
         if (!player2Tanks.empty()) {
-            int tx = player1Tanks.empty() ? -1 : player1Tanks[0]->getX();
-            int ty = player1Tanks.empty() ? -1 : player1Tanks[0]->getY();
-            if (player2Tanks[current2]->fire(gameMap, tx, ty)) {
+            if (player2Tanks[current2]->fire(gameMap, positionsOf(player1Tanks))) {
                 gameOver = true; winner = '2';
             }
         }
@@ -326,9 +340,7 @@ void TankBattle::handleInput() {
     // --- Update movement for all tanks ---
     for (auto t : player1Tanks) {
         if (t->isMoving()) {
-            int tx = player2Tanks.empty() ? -1 : player2Tanks[0]->getX();
-            int ty = player2Tanks.empty() ? -1 : player2Tanks[0]->getY();
-            if (!t->updateMovement(gameMap, tx, ty)
+            if (!t->updateMovement(gameMap, othersOf(player1Tanks, player2Tanks, t))
                 && gameMap.getAt(t->getY(), t->getX()) == '@')
             {
                 gameOver = true; winner = '2';
@@ -337,9 +349,7 @@ void TankBattle::handleInput() {
     }
     for (auto t : player2Tanks) { // auto loop for moving
         if (t->isMoving()) {
-            int tx = player1Tanks.empty() ? -1 : player1Tanks[0]->getX();
-            int ty = player1Tanks.empty() ? -1 : player1Tanks[0]->getY();
-            if (!t->updateMovement(gameMap, tx, ty)
+            if (!t->updateMovement(gameMap, othersOf(player2Tanks, player1Tanks, t))
                 && gameMap.getAt(t->getY(), t->getX()) == '@')
             {
                 gameOver = true; winner = '1';
@@ -360,10 +370,8 @@ void TankBattle::update() {
 
     // 1) Player 1 bullets
     for (auto t : player1Tanks) {
-        // target the first P2 tank (or off‐map if none)
-        int tx = player2Tanks.empty() ? -1 : player2Tanks[0]->getX();
-        int ty = player2Tanks.empty() ? -1 : player2Tanks[0]->getY();
-        if (t->updateBullet(gameMap, tx, ty)) {
+        // bullets can hit any P2 tank
+        if (t->updateBullet(gameMap, positionsOf(player2Tanks))) {
             gameOver = true;
             winner = '1';
             return;  // stop processing once someone wins
@@ -372,9 +380,7 @@ void TankBattle::update() {
 
     // 2) Player 2 bullets
     for (auto t : player2Tanks) {
-        int tx = player1Tanks.empty() ? -1 : player1Tanks[0]->getX();
-        int ty = player1Tanks.empty() ? -1 : player1Tanks[0]->getY();
-        if (t->updateBullet(gameMap, tx, ty)) {
+        if (t->updateBullet(gameMap, positionsOf(player1Tanks))) {
             gameOver = true;
             winner = '2';
             return;

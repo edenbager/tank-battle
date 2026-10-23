@@ -1,8 +1,15 @@
 ﻿#include "Tank.h"
-#include "ConsuleUtility.h"
+#include "ConsoleUtility.h"
 #include <iostream>
 
 using namespace std;
+
+// true if any tank in the list stands at (px, py)
+static bool isOccupied(const Positions& tanks, int px, int py) {
+    for (const auto& p : tanks)
+        if (p.first == px && p.second == py) return true;
+    return false;
+}
 
 Tank::Tank(int startX, int startY, int startDir, char tankSymbol, bool colored,
     int tColor, int cColor)
@@ -15,7 +22,7 @@ Tank::Tank(int startX, int startY, int startDir, char tankSymbol, bool colored,
     lastCannonX(startX), lastCannonY(startY),
     lastTankX(startX), lastTankY(startY),
     tankColor(tColor), cannonColor(cColor), useColor(colored),
-    hasCanon(true) { // נוסיף משתנה חדש שמציין אם יש לטנק קנה
+    hasCanon(true) { // tank starts with a working cannon
 }
 
 void Tank::draw() {
@@ -54,7 +61,7 @@ void Tank::draw() {
         lastCannonY = cannonY;
     }
     else {
-        // אם אין קנה, עדיין לשמור את המיקום האחרון כדי לנקות אותו בפעם הבאה
+        // no cannon: still remember its last position so it gets erased next time
         lastCannonX = cannonX;
         lastCannonY = cannonY;
     }
@@ -104,7 +111,7 @@ bool Tank::isMoving() const {
     return leftTrackForward || leftTrackBackward || rightTrackForward || rightTrackBackward;
 }
 
-bool Tank::updateMovement(GameMap& gameMap, int otherTankX, int otherTankY) {
+bool Tank::updateMovement(GameMap& gameMap, const Positions& otherTanks) {
     if (!isMoving()) return true;
 
     int newX = x;
@@ -190,10 +197,10 @@ bool Tank::updateMovement(GameMap& gameMap, int otherTankX, int otherTankY) {
     // check if we hit anything
     if ((gameMap.getAt(newY, newX) == '#' ||
         gameMap.getAt(newY, newX) == '!' ||
-        (newX == otherTankX && newY == otherTankY)) ||
+        isOccupied(otherTanks, newX, newY)) ||
         (hasCanon && (gameMap.getAt(cannonY, cannonX) == '#' ||
             gameMap.getAt(cannonY, cannonX) == '!' ||
-            (cannonX == otherTankX && cannonY == otherTankY)))) {
+            isOccupied(otherTanks, cannonX, cannonY)))) {
         stopMoving();
         return false;
     }
@@ -211,14 +218,14 @@ bool Tank::updateMovement(GameMap& gameMap, int otherTankX, int otherTankY) {
     return true;
 }
 
-// בדיקה אם הכדור פגע בגוף הטנק
+// check if a bullet hit the tank body
 bool Tank::isBodyHit(int bx, int by) const {
     return bx == x && by == y;
 }
 
-// בדיקה אם הכדור פגע בקנה של הטנק
+// check if a bullet hit the tank cannon
 bool Tank::isCannonHit(int bx, int by) const {
-    if (!hasCanon) return false; // אם אין קנה, לא ניתן לפגוע בו
+    if (!hasCanon) return false; // no cannon, nothing to hit
 
     int cannonX = x, cannonY = y;
     switch (directionIdx) {
@@ -235,19 +242,19 @@ bool Tank::isCannonHit(int bx, int by) const {
     return (bx == cannonX && by == cannonY);
 }
 
-// שבירת הקנה של הטנק
+// break the tank's cannon
 void Tank::breakCannon() {
     hasCanon = false;
-    // מוחקים את הקנה מהמסך
+    // erase the cannon from the screen
     if (lastCannonX >= 0 && lastCannonX < WIDTH && lastCannonY >= 0 && lastCannonY < HEIGHT) {
         ConsoleUtility::gotoxy(lastCannonX, lastCannonY);
         cout << ' ';
     }
 }
 
-bool Tank::fire(GameMap& gameMap, int otherTankX, int otherTankY) {
+bool Tank::fire(GameMap& gameMap, const Positions& enemies) {
     if (framesSinceLastShot < FRAMES_BETWEEN_SHOTS || !hasCanon) {
-        return false; // אי אפשר לירות בלי קנה
+        return false; // can't shoot without a cannon (or still reloading)
     }
 
     // calculate where cannon is
@@ -304,7 +311,7 @@ bool Tank::fire(GameMap& gameMap, int otherTankX, int otherTankY) {
         cout << ' ';
         return false;
     }
-    else if (bx == otherTankX && by == otherTankY) {
+    else if (isOccupied(enemies, bx, by)) {
         return true;
     }
 
@@ -322,7 +329,7 @@ bool Tank::fire(GameMap& gameMap, int otherTankX, int otherTankY) {
     return false;
 }
 
-bool Tank::updateBullet(GameMap& gameMap, int otherTankX, int otherTankY) {
+bool Tank::updateBullet(GameMap& gameMap, const Positions& enemies) {
     // count frames since last shot
     framesSinceLastShot++;
 
@@ -343,40 +350,21 @@ bool Tank::updateBullet(GameMap& gameMap, int otherTankX, int otherTankY) {
 
         // check if bullet hit screen edge
         if (bx <= 0 || bx >= WIDTH - 1 || by <= 0 || by >= HEIGHT - 1) {
-            // wrap bullet around screen
-            if (bx <= 0) {
-                bx = WIDTH - 2;  // show up on right side
-            }
-            else if (bx >= WIDTH - 1) {
-                bx = 1;  // show up on left side
-            }
-            else if (by <= 0) {
-                by = HEIGHT - 2;  // show up at bottom
-            }
-            else if (by >= HEIGHT - 1) {
-                by = 1;  // show up at top
-            }
+            // wrap bullet around screen (both axes, so diagonal bullets wrap correctly at corners)
+            if (bx <= 0) bx = WIDTH - 2;
+            else if (bx >= WIDTH - 1) bx = 1;
+            if (by <= 0) by = HEIGHT - 2;
+            else if (by >= HEIGHT - 1) by = 1;
 
             // keep going same direction from new spot
             it->deactivate();
             it->fire(bx, by, it->getDirectionIdx());
         }
 
-        // handle 2-hit walls: '#' → '%' on first hit, then '%' → empty on second
+        // walls take 2 hits: '#' -> '!' -> gone (same rules as GameMap::damageWall)
         char cell = gameMap.getAt(by, bx);
-        if (cell == '#' || cell == '%') {
-            if (cell == '#') {
-                // first hit: turn full‐strength wall into "damaged" wall
-                gameMap.setAt(by, bx, '%');
-                ConsoleUtility::gotoxy(bx, by);
-                std::cout << '%';
-            }
-            else {
-                // second hit: remove damaged wall entirely
-                gameMap.setAt(by, bx, ' ');
-                ConsoleUtility::gotoxy(bx, by);
-                std::cout << ' ';
-            }
+        if (cell == '#' || cell == '!') {
+            gameMap.damageWall(by, bx);
             it->deactivate();
         }
         else if (gameMap.getAt(by, bx) == '@') {
@@ -387,19 +375,19 @@ bool Tank::updateBullet(GameMap& gameMap, int otherTankX, int otherTankY) {
         }
 
         // hit opponent?
-        if (bx == otherTankX && by == otherTankY) {
+        if (isOccupied(enemies, bx, by)) {
             it->deactivate();
             hitTarget = true;
         }
         // hit self: check both tank body and cannon position
         else if (isBodyHit(bx, by)) {
             it->deactivate();
-            // טנק פגע בעצמו - מת מיד
+            // tank shot its own body - it dies
             tankDied = true;
         }
         else if (isCannonHit(bx, by)) {
             it->deactivate();
-            // טנק פגע בקנה שלו - הקנה נשבר
+            // tank shot its own cannon - the cannon breaks
             breakCannon();
         }
         // otherwise just draw the bullet in its new spot
@@ -415,9 +403,9 @@ bool Tank::updateBullet(GameMap& gameMap, int otherTankX, int otherTankY) {
         }
     }
 
-    // אם הטנק פגע בעצמו, הוא מת
+    // if the tank shot itself, it dies
     if (tankDied) {
-        return true; // מחזירים true כדי לסמן שהטנק מת
+        return true; // true marks the tank as dead
     }
 
     return hitTarget;

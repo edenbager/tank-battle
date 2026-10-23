@@ -1,5 +1,5 @@
 #include "PauseUtils.h"  // include pause utils header file
-#include "ConsuleUtility.h"  // include console functions for cursor movement
+#include "ConsoleUtility.h"  // include console functions for cursor movement
 #include "constants.h"  // include constants like WIDTH and HEIGHT
 #include <iostream>  // include iostream for cout
 #include <string>  // include string class for building messages
