@@ -1,0 +1,7 @@
+*.exe
+*.obj
+.vs/
+x64/
+Debug/
+Release/
+.DS_Store
